@@ -1,0 +1,130 @@
+<html>
+  <head>
+    <title>ArinaCast Thumbnail Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        margin: 10px;
+        padding: 0;
+        height: 100%;
+        background-color: #aaa;
+        font-size: 20px;
+        color: #333;
+        font-family: Roboto;
+      }
+      .error {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 20px;
+        padding: 10px;
+        background: white;
+        color: black;
+      }
+      #container {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Thumbnail bulk generator</h1>
+    <p>powcast Web UI shows small thumbnails of your photos and videos to allow running Web UI on old tablets and make it blazing fast on new phones.</p>
+    <p>Generating thumbnail for a single photo can take 1-2 seconds, for a video - up to 5. powcast stores thumbnails in a folder you specify to allow serving them later in 1-10 milliseconds.</p>
+    <p>One's media library can easily contain 10,000 or 100,000 items. To make browsing your library a pleasure, pre-generate thumbnails using this page.</p>
+    <div id="container"></div>
+    <img id="img" style="display: none"
+      onload="loadNext();" onerror="imgErr++;loadNext();"></div>
+    <div id="error" class="error" style="display: none"></div>
+  </body>
+  <script type="text/javascript">
+    window.onerror = function (msg, url, lineNo, columnNo, error) {
+      setError(String(lineNo) + ":" + columnNo + " " + msg);
+    }
+
+    var container = document.getElementById('container');
+    var img = document.getElementById('img');
+    var error = document.getElementById('error');
+    var imgErr = 0;
+
+    function loadJson(path, success, error) {
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+          if (xhr.status == 200 && success)
+            success(JSON.parse(xhr.responseText));
+          else
+            error ? error(xhr) : setError(String(xhr));
+        }
+      };
+      xhr.open("GET", path, true);
+      xhr.send();
+    }
+    
+    var errorTimeoutId = 0;
+    function setError(msg) {
+      error.style.display = msg ? 'block' : 'none';
+      error.innerHTML = msg || '';
+      if (msg) {
+        if (errorTimeoutId) {
+          clearTimeout(errorTimeoutId);
+        }
+        errorTimeoutId = setTimeout(function() {
+          setError('');
+        }, 5000);
+      }
+    }
+
+    var loadTimeoutId = 0;
+    function loadNext() {
+      if (mediaIndex == media.length) {
+        container.innerText = 'Done!';
+        return;
+      }
+
+      var lastDiff = Date.now() - timerLast;
+      if (lastDiff < 200) {
+        cachedMedia++;
+        timerStart += lastDiff;
+      }
+
+      container.innerHTML = 'Total: ' + media.length +
+        "<br/>Processed: " + (mediaIndex + 1);
+      timeDiff = Date.now() - timerStart;
+      if (mediaIndex > 10 && mediaIndex > cachedMedia) {
+        container.innerHTML +=
+          '<br/>Estmated time left: ' +
+          Math.round(timeDiff / (mediaIndex - cachedMedia) * (media.length - cachedMedia) / 60000) + ' min';
+      }
+      if (imgErr) {
+        container.innerHTML += '<br/>Errors: ' + imgErr;
+      }
+      if (loadTimeoutId) {
+        clearTimeout(loadTimeoutId);
+      }
+      loadTimeoutId = setTimeout(() => {
+        imgErr++;loadNext();
+      }, 15000);
+      timerLast = Date.now();
+      img.src = '/api/media/preview/' + media[mediaIndex++].hash;
+    }
+
+    var media = [];
+    var cachedMedia = 0;
+    var timerLast = 0;
+    var mediaIndex = 0;
+    var mediaDivsWithImages = [];
+    var afterScrollTimeout = 0;
+    var timerStart = null;
+    container.innerText = 'Listing media...';
+    loadJson('/api/media/list', function(json) {
+      media = json;
+      timerStart = Date.now();
+      if (media.length > 0) {
+        loadNext();
+      } else {
+        container.innerText = 'Server has no media. Did you set the media folder?';
+      }
+    }, setError);
+  </script>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ArinaCast</title>
+  <style type="text/css">
+    body {
+      font-family: Roboto, Arial, serif;
+      padding: 0;
+      margin: 0;
+    }
+    label {
+      font-size: 80%;
+    }
+    .Section {
+      margin: 10px;
+      padding: 0;
+      border-bottom: 1px solid #888;
+      word-break: break-word;
+    }
+    .Section h3 {
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .CollapsedSection ul,
+    .CollapsedSection p {
+      display: none;
+    }
+    .FolderInput {
+      width: 90%;
+    }
+    .Secondary {
+      font-size: 80%;
+    }
+  </style>
+</head>
+<body>
+  <div class="Section" id="preconditions">
+    <h3 onclick="toggleSection(this)">Preconditions</h3>
+    <p>Make sure you have the following installed on this machine before proceeding:</p>
+    <ul>
+      <li><a target="_blank" href="https://www.videolan.org/vlc/">VLC</a> - so that videos would play</li>
+      <li><a target="_blank" href="https://www.ffmpeg.org/download.html">ffmpeg</a> - so that thumbnails of videos could be generated</li>
+      <li><a target="_blank" href="https://www.imagemagick.org/script/download.php">imagemagick</a> - so that thumbnails of photos and videos could be resized - <b>uncheck "install ffmpeg" during installation</b> or thumbnails for videos won't work</li>
+    </ul>
+  </div>
+  <div class="Section" id="settings">
+    <h3 onclick="toggleSection(this)">Settings</h3>
+    <p>
+      <label for="contentRootInput">Folder with photos and videos:</label><br/>
+      <input type="text" id="contentRootInput" value="" class="FolderInput"
+        placeholder="C:\gdrive\Google Photos"><br/>  
+      <span class="Secondary">This folder will be recursively scanned for files with the following extensions: jpg, jpeg, png, gif, tiff, tif, mp4, mts, mkv, avi, wmv, mov.</span>
+    </p>
+    <p>
+      <label for="thumbRootInput">Folder to store thumbnails:</label><br/>
+      <input type="text" id="thumbRootInput" value="" class="FolderInput"
+        placeholder="C:\ArinaCastThumbs"><br/>  
+      <span class="Secondary">Thumbnails of your photos and videos will be generated as you scroll through the Cast UI and stored. Initial thumbnail generation is time consuming.</span>
+    </p>
+    <p>
+      <label for="tvTypeSelect">TV type:</label><br/>
+      <select id="tvTypeSelect">
+        <option value="">Other</option>
+        <option value="bravia">Sony Bravia</option>
+      </select><br/>
+      <span class="Secondary">Currently only Sony Bravia TVs are supported. Through their HTTP API, user can turn the TV on and off, activate HDMI inputs and control the volume. <b>Note: restart ArinaCast after changing TV settings.</b></span>
+    </p>
+    <p>
+      <label for="tvIpInput">TV IP address:</label><br/>
+      <input type="text" id="tvIpInput" value="" placeholder="E.g. 192.168.0.15"><br/>
+      <span class="Secondary">Network address of your TV. Required if you specified the TV type.</span>
+    </p>
+    <p>
+      <label for="tvSecretInput">TV secret:</label><br/>
+      <input type="text" id="tvSecretInput" value="" placeholder="E.g. 0000"><br/>
+      <span class="Secondary"><a href="https://www.npmjs.com/package/bravia#tv-setup">Network access code for your Bravia</a></span>
+    </p>
+    <p>
+      <label for="tvInputSelect">TV input:</label><br/>
+      <select id="tvInputSelect">
+        <option value="">Other</option>
+        <option value="Hdmi1">HDMI 1</option>
+        <option value="Hdmi2">HDMI 2</option>
+        <option value="Hdmi3">HDMI 3</option>
+        <option value="Hdmi4">HDMI 4</option>
+      </select><br/>
+      <span class="Secondary">Will be activated shortly after the TV is turned on through the Web app.</span>
+    </p>
+    <p>
+      <input type="button" id="saveButton" value="Save"/>
+    </p>
+    <p>
+      <input type="button" value="Start on login" onclick="ipcRenderer.send('autostart');">
+    </p>
+  </div>
+  <div class="Section">
+    <h3 onclick="toggleSection(this)">Your library</h3>
+    <p id="medialibStatus"></p>
+    <p>
+      <a href="http://localhost:6567/thumbgen.html" target="_blank">Generate thumbnails</a>
+    </p>
+  </div>
+  <div class="Section">
+    <h3 onclick="toggleSection(this)">Cast UI</h3>
+    <p>Plug THIS device HDMI output into your TV's HDMI input.</p>
+    <p>Open Web casting UI on some <b>OTHER</b> device e.g. phone or tablet (on the same WiFi network) to control what's playing on TV.</p>
+    <p>URL: <span id="hostnameContainer">...</span></p>
+  </div>
+</body>
+<script type="text/javascript">
+  const electron = require('electron');
+  const ipcRenderer = require('electron').ipcRenderer;
+  const remote = electron.remote;
+
+  const contentRootInput = document.getElementById('contentRootInput');
+  const thumbRootInput = document.getElementById('thumbRootInput');
+  const tvTypeSelect = document.getElementById('tvTypeSelect');
+  const tvIpInput = document.getElementById('tvIpInput');
+  const tvSecretInput = document.getElementById('tvSecretInput');
+  const tvInputSelect = document.getElementById('tvInputSelect');
+  const saveButton = document.getElementById('saveButton');
+  const medialibStatus = document.getElementById('medialibStatus');
+
+  const pref = remote.getGlobal('sharedPref');
+  contentRootInput.value = pref.contentRoot || '';
+  thumbRootInput.value = pref.thumbRoot || '';
+  tvTypeSelect.value = pref.tvType || '';
+  tvIpInput.value = pref.tvIp || '';
+  tvSecretInput.value = pref.tvSecret || '';
+  tvInputSelect.value = pref.tvInput || '';
+  const url =  "http://" + pref.ip + ":6567/";
+  hostnameContainer.innerHTML =
+    '<a target="_blank" href="' + url + '">' + url + '</a>';
+
+  saveButton.addEventListener('click', () => {
+    ipcRenderer.send('save-pref', {
+      contentRoot: contentRootInput.value,
+      thumbRoot: thumbRootInput.value,
+      tvIp: tvIpInput.value,
+      tvType: tvTypeSelect.value,
+      tvSecret: tvSecretInput.value,
+      tvInput: tvInputSelect.value,
+    });
+  });
+
+  medialibStatus.innerHTML = pref['medialib-status'] || 'Status unknown.';
+  ipcRenderer.on('medialib-status', (event, status) => {
+    medialibStatus.innerHTML = status;
+  })
+
+  function toggleSection(section) {
+    section.parentNode.classList.toggle('CollapsedSection');
+  }
+
+  if (pref.contentRoot) {
+    document.getElementById('preconditions').classList.toggle('CollapsedSection');
+    document.getElementById('settings').classList.toggle('CollapsedSection');
+  }
+
+  setTimeout(() => ipcRenderer.send('medialib-init'), 10);
+</script>
+</html>

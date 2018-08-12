@@ -1,0 +1,320 @@
+<html>
+  <head>
+    <title>ArinaCast</title>
+    <script type="text/javascript" src="js/handlebars.min.js"></script>
+    <script type="text/javascript" src="js/alloy_finger.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background-color: #000;
+        overflow-y: scroll;
+      }
+      .error {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 20px;
+        padding: 10px;
+        background: white;
+        color: black;
+      }
+      #container {
+        padding-top: 66px;
+      }
+      #controlBar {
+        background: #000;
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: 0;
+        overflow: hidden;
+        padding: 10px;
+        white-space: nowrap;
+      }
+      #controlBar > *{
+        margin-right: 5px;
+      }
+      #controlBar * {
+        font-size: 20px;
+        height: 46px;
+      }
+      .buttonBar {
+        display: inline-block;
+        vertical-align: top;
+      }
+      .buttonBar * {
+        font-size: 20px;
+        min-width: 46px;
+      }
+      .buttonBar button:first-child {
+        margin-right: -7px;
+      }
+      #endBar {
+        padding: 10px;
+      }
+      .media {
+        cursor: pointer;
+        width: 50vw;
+        height: 50vw;
+        display: inline-block;
+        box-sizing: border-box;
+        background: #111;
+        position: relative;
+      }
+      .zoom1 .media {
+        width: 100vw;
+        height: 100vw;
+      }
+      .zoom-1 .media {
+        width: 33.3vw;
+        height: 33.3vw;
+      }
+      .zoom-2 .media {
+        width: 2
+        5vw;
+        height: 25vw;
+      }
+      .mediaImg {
+        background: #555;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .playIcon {
+        position: absolute;
+        pointer-events: none;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      #loadingIndicator {
+        position: fixed;
+        width: 100px;
+        background: #fff;
+        color: #000;
+        border-radius: 0 0 5px 5px;
+        top: 0;
+        left: 50%;
+        margin-left: -50px;
+        text-align: center;
+        padding: 5;
+      }
+      ::-webkit-scrollbar {
+        width: 0px;  /* remove scrollbar space */
+      }
+    </style>
+    <script id="media-template" type="text/x-handlebars-template">
+      <div class="media">
+        <img src="/api/media/preview/{{hash}}" class="mediaImg"
+          id="{{hash}}" title="{{media.relativePath}}"/>
+        {{#if (eq kind 'v')}}
+          <img src="img/play.svg" class="playIcon"/>
+        {{/if}}
+      </div>
+    </script>
+    <script id="control-bar-template" type="text/x-handlebars-template">
+      <select onchange="setYear(this.value);">
+        {{#each years}}
+          <option value="{{this}}" {{#if (eq ../year this)}}selected{{/if}}>{{this}}</option>
+        {{/each}}
+      </select>
+      <select onchange="setKind(this.value);">
+        <option value="" {{#if (eq '' kind)}}selected{{/if}}>All</option>
+        <option value="i" {{#if (eq 'i' kind)}}selected{{/if}}>Images</option>
+        <option value="v" {{#if (eq 'v' kind)}}selected{{/if}}>Videos</option>
+      </select>
+      <div class="buttonBar">
+        <button onclick="cmd('/api/media/play/offset/-1')">◄</button>
+        <button onclick="cmd('/api/media/play/offset/1')">►</button>
+      </div>
+      {{#if tvSupported}}
+        <div class="buttonBar">
+          <button onclick="cmd('/api/media/tv/volume/down')">🔉</button>
+          <button onclick="cmd('/api/media/tv/volume/up')">🔊</button>
+        </div>
+        <div class="buttonBar">
+          <button onclick="cmd('/api/media/tv/on')">On</button>
+          <button onclick="cmd('/api/media/tv/off')">Off</button>
+        </div>
+      {{/if}}
+    </script>
+  </head>
+  <body onscroll="addDivs();" onresize="addDivs();" class="zoom-1">
+    <div id="container" onclick="handleClick(event);"></div>
+    <div id="controlBar"></div>
+    <div id="loadingIndicator">Loading...</div>
+    <div id="error" class="error" style="display: none"></div>
+  </body>
+  <script type="text/javascript">
+    window.onerror = function (msg, url, lineNo, columnNo, error) {
+      setError(String(lineNo) + ":" + columnNo + " " + msg);
+    }
+
+    var controlBar = document.getElementById('controlBar');
+    var container = document.getElementById('container');
+    var error = document.getElementById('error');
+    var loadingIndicator = document.getElementById('loadingIndicator');
+    var mediaTemplate = Handlebars.compile(document.getElementById("media-template").innerHTML);
+    var controlBarTemplate = Handlebars.compile(document.getElementById("control-bar-template").innerHTML);
+
+    function loadJson(path, success, method) {
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+          if (xhr.status == 200 && success) {
+            success(JSON.parse(xhr.responseText));
+          } else {
+            setError(xhr.responseText || 'Network error');
+          }
+        }
+      };
+      xhr.open(method || 'GET', path, true);
+      xhr.send();
+    }
+    
+    var errorTimeoutId = 0;
+    function setError(msg) {
+      setLoading(false);
+      error.style.display = msg ? 'block' : 'none';
+      error.innerHTML = msg || '';
+      if (msg) {
+        if (errorTimeoutId) {
+          clearTimeout(errorTimeoutId);
+        }
+        errorTimeoutId = setTimeout(function() {
+          setError('');
+        }, 5000);
+      }
+    }
+
+    function setLoading(isLoading) {
+      controlBar.style.display = isLoading ? 'none' : 'block';
+      container.style.display = isLoading ? 'none' : 'block';
+      loadingIndicator.style.display = isLoading ? 'block' : 'none';
+    }
+
+    function addDivs() {
+      if (container.childNodes.length >= medias.length ||
+          document.body.scrollTop <
+            document.body.scrollHeight - 4 * document.body.offsetHeight) {
+        return;
+      }
+
+      var output = [];
+      for (var i = 0; i < 10; i++) {
+        var index = i + container.childNodes.length;
+        var media = medias[index];
+        if (!media) {
+          break;
+        }
+        output.push(mediaTemplate(media).trim());
+      }
+      container.innerHTML += output.join('');
+      if (container.childNodes.length < medias.length || year != years[years.length - 1]) {
+        addDivs();
+      }
+    }
+
+    function handleClick(event) {
+      var id = event.srcElement.id;
+      if (!id || id.length != 32) {
+        return;
+      }
+      loadJson(
+        '/api/media/play/' + event.srcElement.id,
+        function(json) {
+          console.log('played', arguments);
+        },
+        'POST');
+    }
+
+    var medias = [];
+    var years = [];
+    var year = '';
+    var kind = '';
+
+    function loadYears() {
+      setLoading(true);
+      loadJson('/api/media/years', function(json) {
+        years = json;
+        if (years.length > 0) {
+          setYear(years[0]);
+        } else {
+          setError('Server has no media. Did you set the media folder?');
+        }
+      });
+    }
+
+    function setYear(value) {
+      if (year == value) {
+        return;
+      }
+      year = value;
+      relist();
+    }
+
+    function relist() {
+      container.innerHTML = '';
+      setLoading(true);
+      loadJson('/api/media/list?year=' + year +  '&kind=' + kind, function(json) {
+        setLoading(false);
+        medias = json.media.reverse();
+        if (medias.length > 0) {
+          controlBar.innerHTML = controlBarTemplate({
+            years,
+            year,
+            kind,
+            tvSupported: !!json.tvSupported,
+          });
+          addDivs();
+        } else {
+          setError('Server has no media. Did you set the media folder?');
+        }
+      });
+    }
+
+    function toTheTop() {
+      document.body.scrollTop = 0;
+    }
+
+    function setKind(value) {
+      kind = value;
+      relist();
+    }
+ 
+    var zoom = -1;
+    var lastPinch;
+    var af = new AlloyFinger(document.body, {
+      touchEnd: (e) => {
+        if (!lastPinch) {
+          return;
+        }
+        if (lastPinch > 1) {
+          zoom = Math.min(1, zoom + 1);
+        } else if (lastPinch < 1) {
+          zoom = Math.max(-2, zoom - 1);
+        }
+        document.body.className = 'zoom' + zoom;
+        lastPinch = undefined;
+      },
+      pinch: (e) => {
+        lastPinch = e.zoom;
+      },
+    });
+ 
+    function cmd(command) {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', command, true);
+      xhr.addEventListener('error', setError);
+      xhr.send('');
+    }
+    
+    loadYears();
+  </script>
+</html>
