@@ -118,7 +118,7 @@
     var timerStart = null;
     container.innerText = 'Listing media...';
     loadJson('/api/media/list', function(json) {
-      media = json;
+      media = json.media;
       timerStart = Date.now();
       if (media.length > 0) {
         loadNext();
