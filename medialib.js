@@ -10,9 +10,9 @@ const supportedExtensions = imgs.concat(vids);
 const ignoredExtensions = ['db'];
 
 function mediaComparator(a, b) {
-  if (a.relativePath < b.relativePath) {
+  if (a.relativeDir < b.relativeDir) {
     return -1;
-  } else if (a.relativePath > b.relativePath) {
+  } else if (a.relativeDir > b.relativeDir) {
     return 1;
   }
   return a.time - b.time; // Chronological.

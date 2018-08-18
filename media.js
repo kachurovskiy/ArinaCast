@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const path = require('path');
 
 const yearRegex = /(^|\/|\\)([0-9]{4})(\/|\\)/;
 
@@ -6,6 +7,8 @@ class Media {
   constructor(path, relativePath, extension, kind, time) {
     this.path = path;
     this.relativePath = relativePath;
+    this.relativeDir = relativePath.substring(
+      0, relativePath.lastIndexOf(path.sep));
     this.extension = extension;
     this.kind = kind;
     this.hash = crypto.createHash('md5').update(relativePath).digest('hex');
