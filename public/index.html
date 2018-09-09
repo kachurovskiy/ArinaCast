@@ -128,10 +128,6 @@
         <option value="i" {{#if (eq 'i' kind)}}selected{{/if}}>Images</option>
         <option value="v" {{#if (eq 'v' kind)}}selected{{/if}}>Videos</option>
       </select>
-      <div class="buttonBar">
-        <button onclick="cmd('/api/media/play/offset/-1')">◄</button>
-        <button onclick="cmd('/api/media/play/offset/1')">►</button>
-      </div>
       {{#if tvSupported}}
         <div class="buttonBar">
           <button onclick="cmd('/api/media/tv/volume/down')">🔉</button>
