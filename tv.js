@@ -10,12 +10,13 @@ class Tv {
   }
 
   on() {
-    return this.bravia_.send('WakeUp');
+    const result = this.bravia_.send('WakeUp');
     if (pref.getTvInput()) {
+      this.setInput_();
       // Sometimes TV is busy turning on and ignores the first request.
       setTimeout(() => this.setInput_(), 3000);
-      setTimeout(() => this.setInput_(), 6000);
     }
+    return result;
   }
 
   setInput_() {

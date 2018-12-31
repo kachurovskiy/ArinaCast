@@ -46,7 +46,13 @@ class Player {
               '--fullscreen',
               '--no-video-title',
               '--qt-minimal-view',
-              '--play-and-stop',
+              '--play-and-pause',
+              // Without this on Windows 10 taskbar may appear on top.
+              '--video-on-top',
+              // Without this Google Photos Movies are 2 times louder than
+              // normal smartphone videos
+              '--audio-filter', 'equalizer:normvol',
+              '--mouse-hide-timeout', '0',
               '--extraintf', 'http',
               '--http-port', '6568',
               media.path

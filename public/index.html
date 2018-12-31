@@ -210,7 +210,13 @@
         }
         output.push(mediaTemplate(media).trim());
       }
-      container.innerHTML += output.join('');
+      var div = document.createElement('div');
+      div.innerHTML = output.join('');
+      var fragment = document.createDocumentFragment();
+      for (let child of div.childNodes) {
+        fragment.appendChild(child);
+      }
+      container.appendChild(fragment);
       if (container.childNodes.length < medias.length || year != years[years.length - 1]) {
         addDivs();
       }
@@ -231,18 +237,17 @@
 
     var medias = [];
     var years = [];
-    var year = '';
-    var kind = '';
+    var year = new URLSearchParams(location.search).get('year') || '';
+    var kind = new URLSearchParams(location.search).get('kind') || '';
 
     function loadYears() {
       setLoading(true);
       loadJson('/api/media/years', function(json) {
         years = json;
-        if (years.length > 0) {
-          setYear(years[0]);
-        } else {
-          setError('Server has no media. Did you set the media folder?');
+        if (!year && years.length > 0) {
+          year = years[0];
         }
+        relist();
       });
     }
 
@@ -254,7 +259,22 @@
       relist();
     }
 
+    function getNewUrl() {
+      const url = new URL(location.origin + location.pathname);
+      if (kind) {
+        url.searchParams.set('kind', kind);
+      }
+      if (year && year != years[0]) {
+        url.searchParams.set('year', year);
+      }
+      return url.toString();
+    }
+
     function relist() {
+      if (location.pathname + location.search != getNewUrl()) {
+        console.log('Replacing with ' + getNewUrl());
+        history.replaceState({}, 'ArinaCast', getNewUrl());
+      }
       container.innerHTML = '';
       setLoading(true);
       loadJson('/api/media/list?year=' + year +  '&kind=' + kind, function(json) {

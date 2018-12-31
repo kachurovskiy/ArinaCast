@@ -17,15 +17,19 @@
     "data-store": "^1.0.0",
     "debug": "~2.6.9",
     "easyimage": "3.0.0",
-    "express": "~4.15.5",
+    "express": "^4.16.4",
+    "ffi": "^2.3.0",
     "file": "^0.2.2",
     "fluent-ffmpeg": "^2.1.2",
     "ip": "^1.1.5",
-    "morgan": "~1.9.0",
+    "morgan": "^1.9.1",
     "open": "0.0.5",
     "recursive-readdir": "^2.2.1",
-    "request": "^2.83.0",
+    "request": "^2.88.0",
     "tmp": "0.0.33",
     "vlc-command": "^1.1.1"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^1.8.2"
   }
 }

@@ -10,6 +10,7 @@ const tmp = require('tmp');
 const pref = require('./pref');
 const player = require('./player');
 const tv = require('./tv');
+const child_process = require('child_process');
 
 function sendOk(res) {
   res.status(200).send('{"status":"OK"}');
@@ -130,7 +131,10 @@ router.post('/media/tv/on', function(req, res, next) {
 
 router.post('/media/tv/off', function(req, res, next) {
   tv.off()
-    .then(() => sendOk(res))
+    .then(() => {
+      sendOk(res);
+      child_process.exec('rundll32.exe powrprof.dll,SetSuspendState 0,1,0');
+    })
     .catch((error) => sendErr(res, 'Error turning off: ' + error));
 });
 
